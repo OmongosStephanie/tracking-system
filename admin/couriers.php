@@ -6,67 +6,85 @@ require_once '../config/database.php';
 $database = new Database();
 $db = $database->getConnection();
 
+$success = '';
+$error = '';
+
 // Handle Add/Edit Courier
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         // Add new courier
         if ($_POST['action'] == 'add') {
-            $username = $_POST['username'];
-            $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-            $name = $_POST['name'];
-            $email = $_POST['email'];
-            $phone = $_POST['phone'];
-            $address = $_POST['address'];
-            $vehicle_type = $_POST['vehicle_type'];
-            $license_number = $_POST['license_number'];
-            
-            $query = "INSERT INTO couriers (username, password, name, email, phone, address, vehicle_type, license_number, created_by) 
-                      VALUES (:username, :password, :name, :email, :phone, :address, :vehicle_type, :license_number, :created_by)";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(':username', $username);
-            $stmt->bindParam(':password', $password);
-            $stmt->bindParam(':name', $name);
-            $stmt->bindParam(':email', $email);
-            $stmt->bindParam(':phone', $phone);
-            $stmt->bindParam(':address', $address);
-            $stmt->bindParam(':vehicle_type', $vehicle_type);
-            $stmt->bindParam(':license_number', $license_number);
-            $stmt->bindParam(':created_by', $_SESSION['user_id']);
-            
-            if ($stmt->execute()) {
-                $success = "Courier added successfully!";
-            } else {
-                $error = "Failed to add courier.";
+            try {
+                $username = $_POST['username'];
+                $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                $name = $_POST['name'];
+                $email = $_POST['email'];
+                $phone = $_POST['phone'] ?? '';
+                $address = $_POST['address'] ?? '';
+                $vehicle_type = $_POST['vehicle_type'] ?? '';
+                $license_number = $_POST['license_number'] ?? '';
+                
+                $query = "INSERT INTO couriers (username, password, name, email, phone, address, vehicle_type, license_number, created_by) 
+                          VALUES (:username, :password, :name, :email, :phone, :address, :vehicle_type, :license_number, :created_by)";
+                $stmt = $db->prepare($query);
+                $stmt->bindParam(':username', $username);
+                $stmt->bindParam(':password', $password);
+                $stmt->bindParam(':name', $name);
+                $stmt->bindParam(':email', $email);
+                $stmt->bindParam(':phone', $phone);
+                $stmt->bindParam(':address', $address);
+                $stmt->bindParam(':vehicle_type', $vehicle_type);
+                $stmt->bindParam(':license_number', $license_number);
+                $stmt->bindParam(':created_by', $_SESSION['user_id']);
+                
+                if ($stmt->execute()) {
+                    $success = "Courier added successfully!";
+                } else {
+                    $error = "Failed to add courier.";
+                }
+            } catch (PDOException $e) {
+                $error = "Database error: " . $e->getMessage();
             }
         }
         
         // Update courier
         if ($_POST['action'] == 'edit') {
-            $id = $_POST['id'];
-            $name = $_POST['name'];
-            $email = $_POST['email'];
-            $phone = $_POST['phone'];
-            $address = $_POST['address'];
-            $vehicle_type = $_POST['vehicle_type'];
-            $license_number = $_POST['license_number'];
-            $status = $_POST['status'];
-            
-            $query = "UPDATE couriers SET name=:name, email=:email, phone=:phone, address=:address, 
-                      vehicle_type=:vehicle_type, license_number=:license_number, status=:status WHERE id=:id";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(':name', $name);
-            $stmt->bindParam(':email', $email);
-            $stmt->bindParam(':phone', $phone);
-            $stmt->bindParam(':address', $address);
-            $stmt->bindParam(':vehicle_type', $vehicle_type);
-            $stmt->bindParam(':license_number', $license_number);
-            $stmt->bindParam(':status', $status);
-            $stmt->bindParam(':id', $id);
-            
-            if ($stmt->execute()) {
-                $success = "Courier updated successfully!";
-            } else {
-                $error = "Failed to update courier.";
+            try {
+                $id = $_POST['id'];
+                $name = $_POST['name'];
+                $email = $_POST['email'];
+                $phone = $_POST['phone'] ?? '';
+                $address = $_POST['address'] ?? '';
+                $vehicle_type = $_POST['vehicle_type'] ?? '';
+                $license_number = $_POST['license_number'] ?? '';
+                $status = $_POST['status'];
+                
+                $query = "UPDATE couriers SET 
+                          name = :name, 
+                          email = :email, 
+                          phone = :phone, 
+                          address = :address, 
+                          vehicle_type = :vehicle_type, 
+                          license_number = :license_number, 
+                          status = :status 
+                          WHERE id = :id";
+                $stmt = $db->prepare($query);
+                $stmt->bindParam(':name', $name);
+                $stmt->bindParam(':email', $email);
+                $stmt->bindParam(':phone', $phone);
+                $stmt->bindParam(':address', $address);
+                $stmt->bindParam(':vehicle_type', $vehicle_type);
+                $stmt->bindParam(':license_number', $license_number);
+                $stmt->bindParam(':status', $status);
+                $stmt->bindParam(':id', $id);
+                
+                if ($stmt->execute()) {
+                    $success = "Courier updated successfully!";
+                } else {
+                    $error = "Failed to update courier.";
+                }
+            } catch (PDOException $e) {
+                $error = "Database error: " . $e->getMessage();
             }
         }
     }
@@ -74,38 +92,46 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 // Handle Delete
 if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
-    
-    // Check if courier has orders
-    $check_query = "SELECT COUNT(*) as total FROM orders WHERE courier_id = :id";
-    $check_stmt = $db->prepare($check_query);
-    $check_stmt->bindParam(':id', $id);
-    $check_stmt->execute();
-    $result = $check_stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($result['total'] == 0) {
-        $delete_query = "DELETE FROM couriers WHERE id = :id";
-        $delete_stmt = $db->prepare($delete_query);
-        $delete_stmt->bindParam(':id', $id);
+    try {
+        $id = $_GET['delete'];
         
-        if ($delete_stmt->execute()) {
-            $success = "Courier deleted successfully!";
+        // Check if courier has orders
+        $check_query = "SELECT COUNT(*) as total FROM orders WHERE courier_id = :id";
+        $check_stmt = $db->prepare($check_query);
+        $check_stmt->bindParam(':id', $id);
+        $check_stmt->execute();
+        $result = $check_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result['total'] == 0) {
+            $delete_query = "DELETE FROM couriers WHERE id = :id";
+            $delete_stmt = $db->prepare($delete_query);
+            $delete_stmt->bindParam(':id', $id);
+            
+            if ($delete_stmt->execute()) {
+                $success = "Courier deleted successfully!";
+            }
+        } else {
+            $error = "Cannot delete courier with assigned orders";
         }
-    } else {
-        $error = "Cannot delete courier with assigned orders";
+    } catch (PDOException $e) {
+        $error = "Database error: " . $e->getMessage();
     }
 }
 
 // Get all couriers
-$query = "SELECT c.*, u.username as created_by_name, 
-          (SELECT COUNT(*) FROM orders WHERE courier_id = c.id AND status IN ('Processing', 'Shipped')) as active_deliveries 
-          FROM couriers c 
-          LEFT JOIN users u ON c.created_by = u.id 
-          ORDER BY c.id DESC";
-$stmt = $db->query($query);
-$couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+try {
+    $query = "SELECT c.*, u.username as created_by_name,
+              (SELECT COUNT(*) FROM orders WHERE courier_id = c.id AND status IN ('Processing', 'Shipped')) as active_deliveries 
+              FROM couriers c 
+              LEFT JOIN users u ON c.created_by = u.id 
+              ORDER BY c.id DESC";
+    $stmt = $db->query($query);
+    $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = "Error loading couriers: " . $e->getMessage();
+    $couriers = [];
+}
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -151,6 +177,7 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             gap: 10px;
             color: white;
             text-decoration: none;
+            transition: background 0.3s;
         }
         
         .menu-item:hover,
@@ -169,10 +196,15 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             justify-content: space-between;
             align-items: center;
             margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
         .header h1 {
             color: #333;
+            font-size: 24px;
         }
         
         .add-btn {
@@ -186,6 +218,7 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             display: flex;
             align-items: center;
             gap: 5px;
+            transition: background 0.3s;
         }
         
         .add-btn:hover {
@@ -193,9 +226,10 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         
         .alert {
-            padding: 15px;
+            padding: 15px 20px;
             border-radius: 5px;
             margin-bottom: 20px;
+            font-size: 14px;
         }
         
         .alert-success {
@@ -221,7 +255,12 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             border-radius: 10px;
             padding: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            position: relative;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .courier-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
         }
         
         .courier-header {
@@ -229,6 +268,8 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
         }
         
         .courier-name {
@@ -261,20 +302,17 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         .courier-details {
             margin: 15px 0;
-            padding: 15px 0;
-            border-top: 1px solid #f0f0f0;
-            border-bottom: 1px solid #f0f0f0;
         }
         
         .detail-row {
             display: flex;
             margin-bottom: 8px;
+            font-size: 14px;
         }
         
         .detail-label {
             width: 100px;
             color: #666;
-            font-size: 14px;
         }
         
         .detail-value {
@@ -288,6 +326,8 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             justify-content: space-between;
             align-items: center;
             margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #f0f0f0;
         }
         
         .active-deliveries {
@@ -295,7 +335,7 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             color: white;
             padding: 5px 10px;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 13px;
         }
         
         .action-btns {
@@ -313,6 +353,7 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            transition: opacity 0.3s;
         }
         
         .btn-edit {
@@ -320,14 +361,26 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             color: white;
         }
         
+        .btn-edit:hover {
+            background: #0056b3;
+        }
+        
         .btn-delete {
             background: #dc3545;
             color: white;
         }
         
+        .btn-delete:hover {
+            background: #c82333;
+        }
+        
         .btn-assign {
             background: #28a745;
             color: white;
+        }
+        
+        .btn-assign:hover {
+            background: #218838;
         }
         
         /* Modal Styles */
@@ -356,6 +409,7 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             max-width: 600px;
             max-height: 90vh;
             overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
         
         .modal-header {
@@ -363,10 +417,13 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
         }
         
         .modal-header h2 {
             color: #333;
+            font-size: 20px;
         }
         
         .close-btn {
@@ -375,27 +432,34 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             font-size: 24px;
             cursor: pointer;
             color: #666;
+            transition: color 0.3s;
+        }
+        
+        .close-btn:hover {
+            color: #333;
         }
         
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .form-group label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             color: #333;
             font-weight: 600;
+            font-size: 14px;
         }
         
         .form-group input,
         .form-group select,
         .form-group textarea {
             width: 100%;
-            padding: 10px;
+            padding: 10px 12px;
             border: 2px solid #e1e1e1;
             border-radius: 5px;
             font-size: 14px;
+            transition: border-color 0.3s;
         }
         
         .form-group input:focus,
@@ -405,11 +469,18 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             outline: none;
         }
         
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
         .modal-actions {
             display: flex;
             gap: 10px;
             justify-content: flex-end;
-            margin-top: 20px;
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #f0f0f0;
         }
         
         .btn-save, .btn-cancel {
@@ -418,6 +489,8 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
         }
         
         .btn-save {
@@ -438,6 +511,23 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             background: #5a6268;
         }
         
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            background: white;
+            border-radius: 10px;
+            grid-column: 1 / -1;
+        }
+        
+        .empty-state h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .empty-state p {
+            color: #666;
+        }
+        
         @media (max-width: 1024px) {
             .sidebar {
                 width: 80px;
@@ -450,6 +540,10 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             .main-content {
                 margin-left: 80px;
+            }
+            
+            .couriers-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -472,63 +566,86 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <div class="main-content">
         <div class="header">
             <h1>Manage Couriers</h1>
-            <button class="add-btn" onclick="openAddModal()">➕ Add New Courier</button>
+            <button class="add-btn" onclick="openAddModal()">
+                <span>➕</span> Add New Courier
+            </button>
         </div>
 
-        <?php if (isset($success)): ?>
-            <div class="alert alert-success"><?php echo $success; ?></div>
+        <?php if ($success): ?>
+            <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
         <?php endif; ?>
         
-        <?php if (isset($error)): ?>
-            <div class="alert alert-error"><?php echo $error; ?></div>
+        <?php if ($error): ?>
+            <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 
-        <div class="couriers-grid">
-            <?php foreach ($couriers as $courier): ?>
-            <div class="courier-card">
-                <div class="courier-header">
-                    <span class="courier-name"><?php echo htmlspecialchars($courier['name']); ?></span>
-                    <span class="status-badge status-<?php echo $courier['status']; ?>">
-                        <?php echo ucfirst($courier['status']); ?>
-                    </span>
-                </div>
-                
-                <div class="courier-details">
-                    <div class="detail-row">
-                        <span class="detail-label">Username:</span>
-                        <span class="detail-value"><?php echo htmlspecialchars($courier['username']); ?></span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Email:</span>
-                        <span class="detail-value"><?php echo htmlspecialchars($courier['email']); ?></span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Phone:</span>
-                        <span class="detail-value"><?php echo htmlspecialchars($courier['phone'] ?? 'N/A'); ?></span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Vehicle:</span>
-                        <span class="detail-value"><?php echo htmlspecialchars($courier['vehicle_type'] ?? 'N/A'); ?></span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">License:</span>
-                        <span class="detail-value"><?php echo htmlspecialchars($courier['license_number'] ?? 'N/A'); ?></span>
-                    </div>
-                </div>
-
-                <div class="courier-footer">
-                    <span class="active-deliveries">
-                        📦 <?php echo $courier['active_deliveries']; ?> Active
-                    </span>
-                    <div class="action-btns">
-                        <button class="btn-edit" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($courier)); ?>)">✏️ Edit</button>
-                        <a href="?delete=<?php echo $courier['id']; ?>" class="btn-delete" onclick="return confirm('Delete this courier?')">🗑️ Delete</a>
-                        <a href="assign_orders.php?courier_id=<?php echo $courier['id']; ?>" class="btn-assign">📋 Assign</a>
-                    </div>
-                </div>
+        <?php if (empty($couriers)): ?>
+            <div class="empty-state">
+                <h3>No couriers yet</h3>
+                <p>Click the "Add New Courier" button to create your first courier.</p>
             </div>
-            <?php endforeach; ?>
-        </div>
+        <?php else: ?>
+            <div class="couriers-grid">
+                <?php foreach ($couriers as $courier): ?>
+                <div class="courier-card">
+                    <div class="courier-header">
+                        <span class="courier-name"><?php echo htmlspecialchars($courier['name']); ?></span>
+                        <span class="status-badge status-<?php echo $courier['status']; ?>">
+                            <?php echo ucfirst($courier['status']); ?>
+                        </span>
+                    </div>
+                    
+                    <div class="courier-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Username:</span>
+                            <span class="detail-value"><?php echo htmlspecialchars($courier['username']); ?></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Email:</span>
+                            <span class="detail-value"><?php echo htmlspecialchars($courier['email']); ?></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Phone:</span>
+                            <span class="detail-value"><?php echo htmlspecialchars($courier['phone'] ?? 'N/A'); ?></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Vehicle:</span>
+                            <span class="detail-value"><?php echo htmlspecialchars($courier['vehicle_type'] ?? 'N/A'); ?></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">License:</span>
+                            <span class="detail-value"><?php echo htmlspecialchars($courier['license_number'] ?? 'N/A'); ?></span>
+                        </div>
+                        <?php if (!empty($courier['address'])): ?>
+                        <div class="detail-row">
+                            <span class="detail-label">Address:</span>
+                            <span class="detail-value"><?php echo htmlspecialchars(substr($courier['address'], 0, 30)) . '...'; ?></span>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="courier-footer">
+                        <span class="active-deliveries">
+                            📦 <?php echo $courier['active_deliveries'] ?? 0; ?> Active
+                        </span>
+                        <div class="action-btns">
+                            <button class="btn-edit" onclick='openEditModal(<?php echo json_encode($courier); ?>)'>
+                                ✏️ Edit
+                            </button>
+                            <a href="?delete=<?php echo $courier['id']; ?>" 
+                               class="btn-delete" 
+                               onclick="return confirm('Are you sure you want to delete this courier?')">
+                                🗑️ Delete
+                            </a>
+                            <a href="assign_orders.php?courier_id=<?php echo $courier['id']; ?>" class="btn-assign">
+                                📋 Assign
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Add Courier Modal -->
@@ -543,38 +660,39 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <input type="hidden" name="action" value="add">
                 
                 <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" name="username" required>
+                    <label>Username *</label>
+                    <input type="text" name="username" required placeholder="Enter username">
                 </div>
                 
                 <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" name="password" required>
+                    <label>Password *</label>
+                    <input type="password" name="password" required placeholder="Enter password">
                 </div>
                 
                 <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" name="name" required>
+                    <label>Full Name *</label>
+                    <input type="text" name="name" required placeholder="Enter full name">
                 </div>
                 
                 <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" name="email" required>
+                    <label>Email *</label>
+                    <input type="email" name="email" required placeholder="Enter email address">
                 </div>
                 
                 <div class="form-group">
                     <label>Phone Number</label>
-                    <input type="text" name="phone">
+                    <input type="text" name="phone" placeholder="Enter phone number">
                 </div>
                 
                 <div class="form-group">
                     <label>Address</label>
-                    <textarea name="address" rows="3"></textarea>
+                    <textarea name="address" rows="2" placeholder="Enter address"></textarea>
                 </div>
                 
                 <div class="form-group">
                     <label>Vehicle Type</label>
                     <select name="vehicle_type">
+                        <option value="">Select vehicle</option>
                         <option value="Motorcycle">Motorcycle</option>
                         <option value="Bicycle">Bicycle</option>
                         <option value="Car">Car</option>
@@ -586,7 +704,7 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 <div class="form-group">
                     <label>License Number</label>
-                    <input type="text" name="license_number">
+                    <input type="text" name="license_number" placeholder="Enter license number">
                 </div>
                 
                 <div class="modal-actions">
@@ -610,12 +728,12 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <input type="hidden" name="id" id="edit_id">
                 
                 <div class="form-group">
-                    <label>Full Name</label>
+                    <label>Full Name *</label>
                     <input type="text" name="name" id="edit_name" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Email</label>
+                    <label>Email *</label>
                     <input type="email" name="email" id="edit_email" required>
                 </div>
                 
@@ -626,12 +744,13 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 <div class="form-group">
                     <label>Address</label>
-                    <textarea name="address" id="edit_address" rows="3"></textarea>
+                    <textarea name="address" id="edit_address" rows="2"></textarea>
                 </div>
                 
                 <div class="form-group">
                     <label>Vehicle Type</label>
                     <select name="vehicle_type" id="edit_vehicle_type">
+                        <option value="">Select vehicle</option>
                         <option value="Motorcycle">Motorcycle</option>
                         <option value="Bicycle">Bicycle</option>
                         <option value="Car">Car</option>
@@ -670,11 +789,11 @@ $couriers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         function openEditModal(courier) {
             document.getElementById('edit_id').value = courier.id;
-            document.getElementById('edit_name').value = courier.name;
-            document.getElementById('edit_email').value = courier.email;
+            document.getElementById('edit_name').value = courier.name || '';
+            document.getElementById('edit_email').value = courier.email || '';
             document.getElementById('edit_phone').value = courier.phone || '';
             document.getElementById('edit_address').value = courier.address || '';
-            document.getElementById('edit_vehicle_type').value = courier.vehicle_type || 'Motorcycle';
+            document.getElementById('edit_vehicle_type').value = courier.vehicle_type || '';
             document.getElementById('edit_license').value = courier.license_number || '';
             document.getElementById('edit_status').value = courier.status || 'active';
             
